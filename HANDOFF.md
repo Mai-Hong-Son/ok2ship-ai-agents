@@ -10,9 +10,12 @@
 ## Repo topology (read this before touching git — it's not one repo)
 As of 2026-08-23, this product is **three separate git repositories**, not one:
 1. **`products/ok2ship-ai/`** (this repo, the one `HANDOFF.md`/`docs/` live in) — planning,
-   design docs, session handoff. No remote configured; nothing pushed anywhere. `backend/` and
-   `frontend/` are present on disk here but are each their own **nested** git repo (their own
-   `.git/`) — this parent repo does not track their contents at all.
+   design docs, session handoff only; `.gitignore` here explicitly excludes `backend/` and
+   `frontend/` in full (not just their build artifacts), so this repo never tracks their content
+   or creates a submodule-style gitlink for them. Pushed to
+   `git@github.com:Mai-Hong-Son/ok2ship-ai-agents.git`, branch `main`. Initial commit `4341db1`
+   ("chore: initial import — ok2ship-ai product planning & handoff docs"), 7 files (`CLAUDE.md`,
+   `HANDOFF.md`, `.gitignore`, `docs/PROGRESS.md`, `docs/design/*.md`).
 2. **`backend/`** — its own repo, pushed to `git@gitlab.com:mektec/ok2ship-ai-backend.git`,
    branch `main`. Initial commit `7463a70` ("chore: initial import — User Management &
    Permission module (WBS #5)"), 67 files, 146 tests.
@@ -20,16 +23,18 @@ As of 2026-08-23, this product is **three separate git repositories**, not one:
    branch `main`. Initial commit `2e7c6e8` ("chore: initial import — User Management &
    Permission frontend"), 61 files, 42 tests.
 
-Both were single "initial import" commits (not a phase-by-phase history — nothing was committed
-incrementally while building, so there's no real snapshot history to replay; see their HANDOFF
-entries below for why). Each has its own pre-commit hook (`.git/hooks/pre-commit` inside
-`backend/`/`frontend/` respectively — copied from this parent repo's hook, then fixed: the
-original used bare `pytest`/checked test files at the wrong root, neither of which actually
-worked once each subfolder became its own repo root).
+All three were single "initial import" commits (not a phase-by-phase history — nothing was
+committed incrementally while building, so there's no real snapshot history to replay; see the
+HANDOFF entries below for why). `backend/`/`frontend/` each have their own pre-commit hook
+(`.git/hooks/pre-commit`, copied from this parent repo's hook then fixed: the original used bare
+`pytest`/checked test files at the wrong root, neither of which actually worked once each
+subfolder became its own repo root — the parent repo's own hook got the same fix, for
+consistency, even though it now has no code/tests of its own to run against).
 
 **Sơn's chosen workflow going forward**: keep developing at these same local paths
-(`products/ok2ship-ai/backend`, `products/ok2ship-ai/frontend`) — do not clone the GitLab repos
-to a new location. Push to GitLab again only when asked; nothing auto-syncs.
+(`products/ok2ship-ai/{backend,frontend}` are the working copies for those two repos;
+`products/ok2ship-ai/` itself is the working copy for the GitHub one) — do not clone any of the
+three to a new location. Push again only when asked; nothing auto-syncs between them.
 
 `HANDOFF.md`/`docs/PROGRESS.md`/`docs/design/*.md` live ONLY in the parent repo — they are not
 copied into either GitLab repo. A session working from a fresh clone of just `backend/` or
@@ -692,16 +697,17 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
    small PR (branch `feature/<slug>`), not one giant end-of-build diff.
 
 ## Next steps (pick up here)
-1. **Done (2026-08-23): git setup + first commits.** `backend/` and `frontend/` are now separate
-   repos, each pushed as one "initial import" commit to their own GitLab project — see "Repo
-   topology" at the top of this file for URLs/commit SHAs/hook details. Not a phase-by-phase
-   commit history (impossible to reconstruct honestly after the fact — nothing was committed
-   incrementally while building; see the git-workflow HANDOFF entries below for the full
-   reasoning). Future changes should land as normal small commits/branches per the Constitution's
-   git rules, in each repo independently.
+1. **Done (2026-08-23): git setup + first commits, all three repos.** `products/ok2ship-ai/`
+   (docs/planning), `backend/`, and `frontend/` are now three separate repos, each pushed as one
+   "initial import" commit to its own remote (GitHub for the parent, GitLab for the other two) —
+   see "Repo topology" at the top of this file for URLs/commit SHAs/hook details. Not a
+   phase-by-phase commit history (impossible to reconstruct honestly after the fact — nothing was
+   committed incrementally while building; see the git-workflow HANDOFF entries below for the
+   full reasoning). Future changes should land as normal small commits/branches per the
+   Constitution's git rules, in each repo independently.
 2. **Phase 6** — Integration + qa-reviewer audit + merge (see "Approved plan" above). Now that
-   initial commits exist in both repos, this can proceed as a normal branch-per-feature flow from
-   here on, in whichever repo(s) a given change touches.
+   initial commits exist in all three repos, this can proceed as a normal branch-per-feature flow
+   from here on, in whichever repo(s) a given change touches.
 3. Checked-in frontend tests for page-level flows (Login, the User Management grid) are still
    owed — Phase 5 was verified live via Playwright instead (see its HANDOFF entry above). Decide
    whether to backfill before Phase 6's merge gate or treat it as a fast-follow.

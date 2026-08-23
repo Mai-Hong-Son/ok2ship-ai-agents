@@ -679,10 +679,9 @@ squashed-vs-module-grouped commit discussion, the README/`.gitignore`/pre-commit
 needed, the `errorCodes.test.ts` cross-repo path fix) is in HANDOFF.md — this is the short
 version.
 
-`backend/` and `frontend/` are now each their own git repo (nested `.git/` inside this monorepo,
-which itself still has zero commits/no remote — only its `backend/`/`frontend/` subfolders got
-pushed anywhere). Both pushed as a single "initial import" commit — true phase-by-phase history
-isn't reconstructable after the fact since nothing was committed incrementally while building.
+`backend/` and `frontend/` are now each their own git repo (nested `.git/` inside this monorepo).
+Both pushed as a single "initial import" commit — true phase-by-phase history isn't
+reconstructable after the fact since nothing was committed incrementally while building.
 
 - `backend/` → `git@gitlab.com:mektec/ok2ship-ai-backend.git`, `main`, commit `7463a70` (67 files,
   146 tests).
@@ -690,9 +689,27 @@ isn't reconstructable after the fact since nothing was committed incrementally w
   files, 42 tests).
 
 Sơn's call: keep developing at the same local paths (`products/ok2ship-ai/backend`/`frontend`),
-push to GitLab again only when asked — nothing auto-syncs. `HANDOFF.md`/`docs/` stay in the
-parent monorepo only, not copied into either GitLab repo.
+push again only when asked — nothing auto-syncs. `HANDOFF.md`/`docs/` stay in the parent monorepo
+only, not copied into either GitLab repo.
+
+### 2026-08-23 — Parent monorepo (docs/planning) pushed to GitHub too
+Sơn: push the parent repo (`products/ok2ship-ai/` itself — CLAUDE.md, HANDOFF.md, docs/) to
+`git@github.com:Mai-Hong-Son/ok2ship-ai-agents.git`.
+
+First updated `.gitignore` to exclude `backend/`/`frontend/` in full, not just their build
+artifacts — now that they're separate repos with their own `.git/`, staging them here would have
+created a submodule-style gitlink entry, which isn't what's wanted. Also applied the same
+`.env.example`-false-positive fix to this repo's own pre-commit hook (the template the
+backend/frontend hooks were copied from) for consistency, even though it now has no code/tests of
+its own to run.
+
+Single "initial import" commit, same reasoning as backend/frontend. Pushed:
+`git@github.com:Mai-Hong-Son/ok2ship-ai-agents.git`, `main`, commit `4341db1` (7 files:
+`CLAUDE.md`, `HANDOFF.md`, `.gitignore`, `docs/PROGRESS.md`, `docs/design/*.md`).
+
+All three of this product's repos are now on a remote. See HANDOFF.md's "Repo topology" for the
+full picture (URLs, commit SHAs, local working-copy locations).
 
 **Next:**
 - Phase 6: integration + qa-reviewer audit + merge — now a normal branch-per-feature flow in each
-  repo independently, since both have an initial commit to branch from.
+  repo independently, since all three have an initial commit to branch from.
