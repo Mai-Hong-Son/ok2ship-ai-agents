@@ -1,0 +1,11 @@
+# backend/ and frontend/ are each their own separate git repo now (nested .git/, pushed to their
+# own GitLab projects — see HANDOFF.md's "Repo topology"). This parent repo doesn't track their
+# contents at all — ignoring the whole directories, not just their build artifacts, so `git add`
+# here never tries to create a submodule-style gitlink entry for them.
+backend/
+frontend/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
