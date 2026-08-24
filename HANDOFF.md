@@ -649,6 +649,105 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
   Verified both branches for real (temporarily moved the backend file aside, confirmed skip, then
   confirmed the real check still runs with it restored) before committing. Result:
   `git@gitlab.com:mektec/ok2ship-ai-frontend.git`, branch `main`, commit `2e7c6e8`.
+- [x] **Bug found manually testing (2026-08-24): loading `/forgot-password` silently rotated the
+  refresh token.** `AuthProvider` wraps every route and unconditionally fires a silent
+  `refreshAccessToken()` on mount — useful for `/login` (redirect-away-if-authenticated) and the
+  protected `/users` route, but `ForgotPasswordPage`/`ResetPasswordPage`/`ActivateAccountPage`
+  never call `useAuth()` at all (confirmed by grep), so the refresh's result was never read on
+  those three. Real risk, not just a wasted request: the refresh cookie is rotate-on-use with
+  reuse detection — a user logged in on one tab who opens `/forgot-password` on another (even
+  just navigating there) rotates their refresh token as a side effect; the first tab's next
+  refresh then reads as a replay of an already-rotated token and revokes the whole session — same
+  class of bug as the StrictMode double-refresh race found in Phase 5. Fixed: `AuthContext.tsx`
+  skips the refresh entirely for a fixed path list (`/forgot-password`, `/reset-password`,
+  `/activate`), checked via `window.location.pathname` (not `useLocation()` — only the URL at the
+  actual page-load moment matters; the effect still only ever runs once, on mount). Verified live
+  via Playwright: those three pages fire zero `/auth/refresh` calls now; `/login` still fires
+  exactly one. 42 frontend tests, build — all green.
+- [x] **"Tổng quan" (Overview) tab + permission-less landing page (2026-08-24).** Sơn: add it per
+  the mockup, empty content for now, and land `user.manage`-less accounts there instead of
+  showing a permission error. Checking the mockup surfaced more drift than expected — confirmed
+  with Sơn before expanding scope: every future-module sidebar label had been paraphrased instead
+  of copied verbatim (e.g. "Nạp báo cáo QA" vs the mockup's real "Data Ingestion"), "Audit Log"
+  was missing outright, no nav item had an icon, and the sidebar bg/width were off
+  (`bg-gray-900`/240px vs the mockup's measured `#12145E`/232px) — all fixed in the same pass.
+  New `navIcons.tsx` (9 icons, paths copied verbatim) and `OverviewPage.tsx` (deliberately empty —
+  the mockup has no built content for this tab either). `ProtectedRoute.tsx` now redirects a
+  failed permission check to `/overview` instead of an inline error;
+  `/`/`*` now default there too (was `/users`). Along the way, found and fixed two pre-existing
+  bugs in the "return to where you came from" login logic: `LoginPage`'s post-login navigate
+  ignored `location.state.from` entirely (hardcoded `/users`); `ProtectedRoute` redirected to
+  `/login` without ever setting `state.from`, so that logic could never have fired even before
+  this. Verified live: `demo_admin` and `demo_qa` (role `qa`, no `user.manage`) both land cleanly
+  on `/overview` after login — zero permission-error text for the latter. 42 frontend tests,
+  build — all green.
+- [x] **"Quản lý người dùng" hidden entirely without `user.manage` (2026-08-24).** Sơn: a
+  visible-but-inert nav link (clicking it redirects away per the previous entry) still reads as
+  broken — hide it outright instead. `NavItem` gained `requirePermission`; `Sidebar` filters
+  items/groups against `useAuth()`'s `hasPermission` per-render. Verified live: `demo_admin` still
+  sees it, `demo_qa` (role `qa`) sees zero matches for it anywhere on the page. 42 frontend tests,
+  build — all green.
+- [x] **User grid fidelity pass (2026-08-24): action icons were raw emoji, status badges wrong on
+  colors/labels/animation.** Sơn flagged the eye icon looked off; checking the whole screen found
+  much more. Action icons (`UserActionsCell.tsx`) were literal emoji (👁 ✎ ⏻ 🗑) — the only place
+  left in the app not using SVG line icons; added `EditIcon`/`PowerIcon`/`TrashIcon` to
+  `common/icons.tsx` (paths from the mockup's real `actionsCellRenderer()` JS), reused the
+  already-matching `EyeIcon`. `StatusBadge.tsx`: 3/4 labels were the raw English status name
+  instead of Vietnamese, 2/4 colors didn't match the mockup's tag classes (Create should be
+  blue/processing not amber; Locked should be amber/warning not red), no status pulsed (mockup
+  pulses Active/Locked — reused the existing `pulse-dot` keyframe, already confirmed
+  byte-identical to the mockup's own), and the shape was a pill instead of the mockup's bordered
+  4px-radius tag. Also fixed two now-stale inline references to the old English labels
+  (`userStatusPlan.ts`, `UserFormModal.tsx`). Verified live via Playwright screenshot. 42 frontend
+  tests, build — all green.
+- [x] **Grid filtering rebuilt to match mockup's actual architecture (2026-08-24).** Sơn: the
+  mockup has no search box, filters live on the column headers. Investigation found more than
+  that single point: the mockup filters entirely client-side (AG Grid's own per-column filter —
+  built-in `agTextColumnFilter` for Name/Email/Department, a custom `SelectFilter` popup for
+  Vai trò/Trạng thái), has no toolbar row at all, merges the Username/Email columns into one, and
+  has a full Vietnamese `localeText` + branded theme the app never adopted (was rendering AG
+  Grid's default unbranded Quartz theme). Confirmed with Sơn (client-side filtering; merge the
+  columns) before rebuilding `UserManagementPage.tsx`:
+  - Toolbar (search input + 2 selects driving a server-side API call) removed; loads the full
+    list once instead (`limit=200`, the backend's own cap).
+  - New `SelectColumnFilter.tsx` (ag-grid-react's `useGridFilter` hook, React-idiomatic
+    reimplementation of the mockup's `SelectFilter` class) for Vai trò/Trạng thái; Vai trò's
+    options come live from `/roles` rather than the mockup's hardcoded Admin/QA.
+  - New `agGridLocaleVi.ts` (mockup's `VI_LOCALE`, plus `noMatchingRows` — a newer AG Grid key the
+    mockup's own object never defined, filled in rather than reproducing the gap) and
+    `agGridTheme.ts` (mockup's `okTheme` branding).
+  - Pagination/row sizing (6/12/24 page sizes, rowHeight 58, headerHeight 44, `domLayout:
+    autoHeight`) now match the mockup's `gridOptions` exactly.
+  - Verified live via Playwright: toolbar gone, funnel-icon filters open/apply correctly on every
+    column, Vietnamese empty-state text confirmed. 42 frontend tests, build — all green.
+- [x] **Role names, breadcrumb, header/sidebar user widgets (2026-08-24).** Sơn caught 3 more
+  drift points in the same review: the grid's Vai trò column showed the raw role *code* ('qa')
+  instead of its title ('QA'); the mockup's breadcrumb ("Quản trị hệ thống / Quản lý người dùng")
+  was entirely missing; "+ Thêm người dùng" (the page's one primary CTA) never got the `shimmer`
+  prop `Button.tsx` already supports. Fixing the last two surfaced a bigger gap: the header's
+  user widget and the sidebar's `.sider-foot` block both need the current user's full_name/email,
+  which the JWT deliberately excludes (short-lived, roles/permissions only). Confirmed with Sơn:
+  add a backend endpoint rather than stuff more into the JWT.
+  - **Backend**: new `GET /auth/me` (bare `get_current_user`, not `user.manage`-gated — any
+    logged-in user reads their own profile, unlike `/users/{id}`). `UserResponse` gained
+    `role_names` (aligned by index with `role_codes`) since `/auth/me`'s consumers have no access
+    to the Admin-only `GET /roles`. 2 new backend tests (+ 1 existing test extended).
+  - **Frontend**: `AuthContext` fetches `/auth/me` once per session (fire-and-forget, falls back
+    to username-only on failure) and exposes it as `profile`. Header: added the breadcrumb
+    (per-route lookup table — only `/users` has real mockup ground truth, the mockup is
+    single-page), the notification bell (decorative, Alert & Notification isn't built yet), and
+    the two-line name+email dropdown trigger with the mockup's exact dropdown styling. Sidebar:
+    added the missing `.sider-foot` block (avatar + name + role, joined with ", " for multi-role
+    since the mockup's demo data only ever has one).
+  - Verified live via Playwright: breadcrumb/bell/header widget/sidebar-foot all render correctly
+    post-login; role names show titles not codes. 148 backend / 42 frontend tests, both builds —
+    all green.
+- [x] **All of today's work committed and pushed (2026-08-24).** Frontend: 3 commits —
+  `7a4677d` (icon/badge fix), `effa97a` (grid rebuild), `e5a9acb` (breadcrumb/header/sidebar/role
+  names) → `git@gitlab.com:mektec/ok2ship-ai-frontend.git`. Backend: `6012b32` (`/auth/me`) →
+  `git@gitlab.com:mektec/ok2ship-ai-backend.git`. One untracked file NOT committed —
+  `backend/scripts/init_db.sh` (pre-existing, not authored this session, unclear if intentionally
+  held back — flagged for Sơn to decide, not silently added to an unrelated commit or ignored).
 
 ## Decisions locked — do not re-litigate (full detail + rationale in docs/design/user-management.md)
 1. No separate approval role — uploader also reviews. `audit_log` is the critical safety net.
@@ -705,12 +804,17 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
    committed incrementally while building; see the git-workflow HANDOFF entries below for the
    full reasoning). Future changes should land as normal small commits/branches per the
    Constitution's git rules, in each repo independently.
-2. **Phase 6** — Integration + qa-reviewer audit + merge (see "Approved plan" above). Now that
-   initial commits exist in all three repos, this can proceed as a normal branch-per-feature flow
-   from here on, in whichever repo(s) a given change touches.
+2. **Phase 6 — Integration + qa-reviewer audit + merge — still not started.** All commits since
+   the initial import (today's mockup-fidelity pass included) have gone straight to `main` in each
+   repo, not through a branch/PR + qa-reviewer flow — a deliberate shortcut while Sơn was the only
+   one testing/iterating, but a real deviation from the Constitution's Standard/Full flow for a
+   Serious product. Worth deciding explicitly: run a qa-reviewer audit retroactively over what's
+   landed so far, or start branch/PR discipline from the next change onward (or both).
 3. Checked-in frontend tests for page-level flows (Login, the User Management grid) are still
    owed — Phase 5 was verified live via Playwright instead (see its HANDOFF entry above). Decide
    whether to backfill before Phase 6's merge gate or treat it as a fast-follow.
+4. `backend/scripts/init_db.sh` exists on disk but was never committed (see today's last entry
+   above) — confirm with Sơn whether to commit it or if it's a local-only convenience script.
 4. Locate the vendor's reference for the *forgot/reset/activate* screens' exact wording if one
    exists beyond `~/Downloads/app.html` (already reviewed and built against) — not blocking,
    just worth confirming nothing drifted from a newer mockup revision.
