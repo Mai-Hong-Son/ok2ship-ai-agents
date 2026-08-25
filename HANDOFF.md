@@ -342,9 +342,14 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
   vendor mockup's own actual choice), axios. Full architecture + auth model in
   `frontend/README.md`. Screens: Login (username-or-email) → Forgot/Reset password → app shell
   (sidebar previews the full future product, User Management is the one real entry) → User
-  Management grid (List/Detail/Create/Edit/Delete-as-Inactive/toggle/resend-activation) with
-  **multi-role** checkboxes (not the mockup's single-select — confirmed decision, Phase 4.5 entry
-  above) → header Change-password modal.
+  Management grid (List/Detail/Create/Edit/Delete-as-Inactive/toggle/resend-activation) →
+  header Change-password modal.
+  - **Role-selection UI has flip-flopped once since this entry was written — see the Phase 6
+    qa-reviewer audit entry below for the current state.** Originally built as multi-role
+    checkboxes per the Phase 4.5 decision referenced above; Sơn asked (2026-08-25) to simplify to
+    a single-select matching the mockup as-is, since only 2 roles ('admin'/'qa') exist today. The
+    data model still allows a user to hold multiple roles regardless of which UI is live —
+    `role_codes: string[]` end to end.
   - **Backend addition needed and built first**: CORS middleware (`app/main.py`,
     `cors_allowed_origins` config) — credentialed requests (the refresh cookie) forbid a wildcard
     origin, so this had to be an explicit allow-list from the start, not bolted on later.
@@ -804,15 +809,47 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
    committed incrementally while building; see the git-workflow HANDOFF entries below for the
    full reasoning). Future changes should land as normal small commits/branches per the
    Constitution's git rules, in each repo independently.
-2. **Phase 6 — Integration + qa-reviewer audit + merge — still not started.** All commits since
-   the initial import (today's mockup-fidelity pass included) have gone straight to `main` in each
-   repo, not through a branch/PR + qa-reviewer flow — a deliberate shortcut while Sơn was the only
-   one testing/iterating, but a real deviation from the Constitution's Standard/Full flow for a
-   Serious product. Worth deciding explicitly: run a qa-reviewer audit retroactively over what's
-   landed so far, or start branch/PR discipline from the next change onward (or both).
-3. Checked-in frontend tests for page-level flows (Login, the User Management grid) are still
-   owed — Phase 5 was verified live via Playwright instead (see its HANDOFF entry above). Decide
-   whether to backfill before Phase 6's merge gate or treat it as a fast-follow.
+2. **Phase 6 — retroactive qa-reviewer audit done (2026-08-25); findings fixed same day; branch/PR
+   discipline still not started.** All commits since the initial import (including this pass) have
+   still gone straight to `main` in each repo — that part of Phase 6 remains a deliberate shortcut,
+   unresolved. But the audit itself ran: 2 general-purpose subagents carrying the real
+   `qa-reviewer.md` persona, one per repo, read-only. Findings and fixes:
+   - **[Backend, Major] `UserUpdate` had no field constraints** (only `UserCreate` did) —
+     `PATCH /users/{id}` with `role_codes: []` silently stripped every role from a user on Edit.
+     Fixed: same `max_length`/`min_length` constraints as `UserCreate`, new tests.
+   - **[Backend, Minor] Unbounded password length** on `LoginRequest`/`ChangePasswordRequest`
+     fields checked against an existing hash — CPU-DoS amplification via forced argon2id work.
+     Fixed: `MAX_PASSWORD_LENGTH = 128` cap.
+   - **[Backend, Minor] `create_user()`/`update_user()`'s `try/except IntegrityError`** (the actual
+     race-condition safety net) was only coverage-tested via the standalone translation helper, not
+     through the real code path. Fixed: new tests trigger the real `db.flush()` path via
+     monkeypatch, gated on `session.new`/`session.dirty` so ORM autoflush on the pre-check SELECTs
+     doesn't false-trigger the simulated race.
+   - **[Backend, Minor] Constraint-name matching** used substring search on `str(exc.orig)`
+     (message text) instead of psycopg3's structured `exc.orig.diag.constraint_name`. Fixed.
+   - **[Frontend, Major] Single-select `RoleSelect` (the 2026-08-25 mockup-match simplification
+     above) could silently truncate a user's roles to 1 on Edit** if they already held >1 role
+     (e.g. seeded outside this UI). Rather than reverting the locked single-select decision, added
+     a guard in `UserFormModal`: editing a user with >1 role locks the field to read-only role
+     chips + a note, and omits `role_codes` from the update payload entirely (backend's "omitted =
+     don't touch" semantics, from the fix above, make this safe).
+   - **[Frontend, Minor] Two unhandled-promise-rejection sites**: `RoleSelect`'s roles fetch had no
+     `.catch` (a failed fetch looked identical to "this system has zero roles"); `Header`'s
+     `handleLogout` had no `try/catch` around `await logout()` (a failed `/auth/logout` call left
+     the user stuck instead of landing on `/login` — the local session is already cleared by
+     `AuthContext.logout()`'s own `finally` either way). Both fixed.
+   - **[Frontend, Major] No component-level tests existed** — partially addressed this pass
+     (`Header.test.tsx`, `RoleSelect.test.tsx`, `UserFormModal.test.tsx`, covering the fixes
+     above); page-level flows (Login, the full User Management grid) are still owed, see item 3.
+   - All fixes verified live via Playwright against the running dev servers (a real user seeded
+     with 2 roles directly in the DB, since no UI path can produce that today) before being
+     considered done, not just by reading the code.
+   - Branch/PR discipline itself: still not started, still worth deciding explicitly with Sơn.
+3. Checked-in frontend tests for full page-level flows (Login's own render+validation+submit, the
+   User Management grid's create/edit/delete/toggle flows end-to-end) are still owed — Phase 5 was
+   verified live via Playwright instead (see its HANDOFF entry above), and this pass only added
+   component-level tests for the specific bugs it fixed (see item 2). Decide whether to backfill
+   the rest before Phase 6's merge gate or treat it as a fast-follow.
 4. `backend/scripts/init_db.sh` exists on disk but was never committed (see today's last entry
    above) — confirm with Sơn whether to commit it or if it's a local-only convenience script.
 4. Locate the vendor's reference for the *forgot/reset/activate* screens' exact wording if one
