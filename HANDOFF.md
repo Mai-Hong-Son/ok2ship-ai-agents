@@ -41,7 +41,7 @@ copied into either GitLab repo. A session working from a fresh clone of just `ba
 `frontend/` won't have them.
 
 ## What this product is
-Backend + web dashboard for **OK2Ship AI Check** (Mektec Vietnam, delivered alongside vendor
+Backend + web dashboard for **OK2SHIP AI** (Mektec Vietnam, delivered alongside vendor
 Desoft). 🚀 Serious product (not a spike) — tests mandatory, branch-per-feature, qa-reviewer before
 merge. Built module by module following the vendor's WBS. **Currently building the first module:
 User Management & Permission Assignment** (WBS #5).

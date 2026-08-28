@@ -30,6 +30,66 @@ For the User Management schema and locked design, see `design/user-management.md
 
 ## Log
 
+### 2026-08-27 — Activation / password-reset emails now carry clickable frontend links
+**Done:**
+- Emails previously mailed a bare token; recipients had no way to use it because the frontend
+  pages (`/activate`, `/reset-password`) only read `?token=` from the URL. Both emails now send
+  a full link built from a new `FRONTEND_BASE_URL` setting (deliberately separate from
+  `CORS_ALLOWED_ORIGINS` — that is a list of API callers, emails need one canonical origin).
+- Multipart/alternative (plain text + HTML with a CTA button). Recipient-facing copy is Vietnamese
+  (matching the frontend UI; Mektec factory staff), kept in `email_templates/` so Python source
+  stays English per the Constitution.
+- Product display name corrected to **OK2SHIP AI** (was "OK2Ship AI Check" in email subjects /
+  `smtp_from_name` / a few docs) — the frontend already used the correct name.
+- `ACTIVATION_TOKEN_TTL_DAYS` consolidated into `verification.py` (was duplicated in
+  `users/service.py` and `cli/bootstrap_admin.py`; email templates now also need the number).
+- Tests for stub/SMTP/multipart/trailing-slash/HTML-escaping/failure-fallback-with-link.
+- Deferred: async/background send (still sync with 10s timeout — fine at current user-create
+  volume; revisit if bulk create lands).
+
+**Flagging:**
+- Cluster Secret `ok2ship-backend-env` still needs `FRONTEND_BASE_URL=https://ok2ship-dev.desoft.vn`
+  patched in before the next deploy that sends real mail — without it, localhost links go out.
+- BA should glance at the Vietnamese email copy before customer-facing use.
+
+### 2026-08-28 — Reviewed the above; closed a compose-failure gap; surfaced send failures to the Admin
+**Reviewed** the 2026-08-27 email work (backend + frontend repos, live SMTP send verified against a
+real Gmail inbox — HTML + plain-text bodies, clickable links both worked end to end). Two things
+fixed in the same pass:
+- **`_render()` (template load + fill) used to run outside any try/except** — a broken template
+  (missing file, typo'd `$placeholder`) would have raised straight out of `send_activation_email()`
+  *after* the caller's DB change had already committed, surfacing as a misleading 500 on an
+  otherwise-successful create/update/resend. Now caught and logged the same way an SMTP failure
+  already was. New regression tests for both `send_activation_email`/`send_password_reset_email`.
+- **Email-send outcome was silently swallowed** — an Admin creating a user (or resending
+  activation) had no way to know the account itself succeeded but the activation email didn't.
+  Both email functions now return `bool`; `create_user`/`update_user`/`resend_activation` propagate
+  it as a new `activation_email_sent: bool | None` on `UserResponse` (`None` = no email attempted,
+  e.g. an update that didn't touch email). `send_password_reset_email`'s return value is
+  deliberately ignored by its one (unauthenticated) caller — surfacing it there would let an
+  attacker enumerate which emails exist, so a failed reset-email looks identical to a successful
+  one from the outside (confirmed with Sơn, 2026-08-28). Frontend shows a new amber "warning" toast
+  (create/edit/resend) pointing at "Gửi lại email kích hoạt" when this comes back `false`, instead
+  of the plain green success copy.
+- `create_user`/`update_user`/`resend_activation` (backend service layer) now return
+  `(User, bool | None)` instead of a bare `User` — updated ~20 call sites across router + tests.
+- **Process finding, worth remembering for every future session on this repo**: `npx tsc --noEmit`
+  is a silent no-op here — the root `tsconfig.json` is `files: [] + references`, which plain `tsc`
+  never traverses (only `tsc -b`, project-reference *build* mode, does). Confirmed by deliberately
+  planting a type error and getting a clean exit from `--noEmit`. `npx tsc -b` is the one that
+  matches `npm run build`'s real command and actually catches errors — it immediately found 4 test
+  fixtures missing the new required field, fixed here. Every `tsc --noEmit` "clean" claim earlier
+  in this product's history should be treated as unverified.
+- Checked the live cluster (`kubectl -n ok2ship describe secret ok2ship-backend-env`, run by Sơn):
+  confirmed as of 2026-08-28 the Secret still has neither `FRONTEND_BASE_URL` nor any `SMTP_*` key
+  — production is still stub-only (prints to pod logs). Sơn is patching both now, using the same
+  Gmail App Password already verified for local dev as an interim production SMTP account (his
+  call — a shared company mailbox is the better long-term answer, tracked as a follow-up, not
+  blocking).
+
+182/182 backend tests, 100% coverage on `email.py`; 102/102 frontend tests; `tsc -b` (the real
+check) clean; both repos committed and pushed.
+
 ### 2026-08-19 — Backend folder architecture locked
 **Done:**
 - Proposed and got approval on a domain-based (feature-package) folder architecture for

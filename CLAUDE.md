@@ -3,13 +3,13 @@
 > 👉 READ `HANDOFF.md` FIRST — latest session state, locked decisions, approved build plan, next
 > steps. Schema source of truth: `docs/design/user-management.md`.
 
-# ok2ship-ai — full-stack (OK2Ship AI Check, Mektec Vietnam)
+# ok2ship-ai — full-stack (OK2SHIP AI, Mektec Vietnam)
 
 > This product inherits the whole Constitution (the @ line above). Everything below is
 > product-SPECIFIC, and may only be STRICTER than the Constitution, never looser.
 
 ## What this product is
-Backend + web dashboard for **OK2Ship AI Check** (Mektec Vietnam, delivered with vendor Desoft —
+Backend + web dashboard for **OK2SHIP AI** (Mektec Vietnam, delivered with vendor Desoft —
 see `docs/design/` for the reconciled requirements). The full system checks QA report data/images
 against spec, golden samples, and cross-report history before a shipment is approved. Built
 incrementally, module by module, following the vendor's WBS. **First module: User Management &
