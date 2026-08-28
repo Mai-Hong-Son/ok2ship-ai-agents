@@ -845,38 +845,52 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
      with 2 roles directly in the DB, since no UI path can produce that today) before being
      considered done, not just by reading the code.
    - Branch/PR discipline itself: still not started, still worth deciding explicitly with Sơn.
-3. Checked-in frontend tests for full page-level flows (Login's own render+validation+submit, the
-   User Management grid's create/edit/delete/toggle flows end-to-end) are still owed — Phase 5 was
-   verified live via Playwright instead (see its HANDOFF entry above), and this pass only added
-   component-level tests for the specific bugs it fixed (see item 2). Decide whether to backfill
-   the rest before Phase 6's merge gate or treat it as a fast-follow.
-4. `backend/scripts/init_db.sh` exists on disk but was never committed (see today's last entry
-   above) — confirm with Sơn whether to commit it or if it's a local-only convenience script.
-4. Locate the vendor's reference for the *forgot/reset/activate* screens' exact wording if one
+3. **Done (2026-08-27): checked-in frontend tests for full page-level flows.** `LoginPage.test.tsx`
+   (render+validation+submit+the location.state.from redirect regression) and
+   `UserManagementPage.test.tsx` (create/edit/delete/toggle/resend-activation, all against the real
+   AG Grid component, not mocked) both added — closes the gap item 2 above left open.
+4. `backend/scripts/init_db.sh` exists on disk but was never committed — still unresolved, confirm
+   with Sơn whether to commit it or if it's a local-only convenience script.
+5. Locate the vendor's reference for the *forgot/reset/activate* screens' exact wording if one
    exists beyond `~/Downloads/app.html` (already reviewed and built against) — not blocking,
    just worth confirming nothing drifted from a newer mockup revision.
-5. Dev DB was fully reset during Phase 4.5 (enum fix) — `demo_admin`/`demo_qa` and the bootstrap
+6. Dev DB was fully reset during Phase 4.5 (enum fix) — `demo_admin`/`demo_qa` and the bootstrap
    Admin were recreated, but note for next session: any manual test data from before Phase 4.5 is
    gone.
-6. Get sign-off on values/decisions invented along the way, not in the original design doc:
+7. Get sign-off on values/decisions invented along the way, not in the original design doc:
    - `max_failed_login_attempts` (default 5, now vendor-confirmed via the mockup) and the exact
      lockout UX — Phase 2.
    - "Delete" and the Active/Inactive toggle collapsing into one endpoint (no separate delete
      route) — Phase 3.
-   - Failed SMTP send is logged, not raised, and no email provider has been chosen yet — Phase 4.
    - `/auth/activate` requiring a password reset even for an email-change token, not just an
      initial signup — gap-closing addition.
    - `/auth/change-password` not revoking other sessions — Phase 4.5.
-7. Re-open the "blocking" open items check in `docs/design/user-management.md` before relying on
+8. Re-open the "blocking" open items check in `docs/design/user-management.md` before relying on
    it further — they were resolved as of the last design session, but double-check nothing new
    surfaced.
-8. **k8s deploy infra — deliberately deferred, not started.** Only the code-level readiness audit
-   is done (see its HANDOFF entry above). Still needed once cluster/registry details are known:
-   Dockerfile (backend + frontend), k8s manifests (Deployment/Service/Ingress/CronJob for
-   auto_lock/a migration Job for `alembic upgrade head`), CI/CD to build+push images, and a
-   decision on how the frontend is served (its own container behind Ingress vs. CDN/object
-   storage outside the cluster — Sơn hasn't decided yet). `backend/docker-compose.yml` is local
-   dev only and was never meant to be a production deploy artifact.
+9. **k8s deploy infra — done, live.** Superseded: the "deliberately deferred" note this item used to
+   have no longer applies. Le Bui built and shipped it (2026-08-25/26, both repos): Dockerfile
+   (backend + frontend), k8s manifests (Deployment/Service/Ingress, `03-migrate-job.yaml` for
+   `alembic upgrade head`, `04-bootstrap-admin-job.yaml`), and a GitLab CI/CD pipeline that
+   build+push+migrate+deploys automatically on every push to `main` in both repos. Live at
+   `ok2ship-dev.desoft.vn` on a Rancher-managed cluster (`rancher-lake.desoft.vn`), namespace
+   `ok2ship`. Still open:
+   - CI's `test` stage is currently disabled ("per explicit request to unblock build/deploy" —
+     `backend/.gitlab-ci.yml` commit `7f45be6`) — every push to `main` deploys without running
+     tests first. Worth a deliberate decision: re-enable once the runner issue that forced this is
+     resolved, or accept it as a standing trade-off.
+   - Branch/PR discipline (the Phase 6 item above) is now doubly relevant: with 2+ people (and
+     agents) pushing straight to `main` in a repo that auto-deploys on every push, an untested bad
+     commit reaches production immediately, with no gate at all.
+   - `frontend/`'s pre-commit hook only runs `npm test` — no `tsc -b` (type-check) and no `oxlint`.
+     A real type error can currently reach a commit (and, per the point above, production)
+     undetected by any local safety net — see the `tsc -b` finding in `docs/PROGRESS.md`'s
+     2026-08-28 entry for why this specifically matters here (`tsc --noEmit`, which one might
+     expect to already cover this, is a no-op on this repo's tsconfig).
+   - Cluster Secret `ok2ship-backend-env` (backend) still needs confirming: `FRONTEND_BASE_URL`
+     and `SMTP_*` were missing as of 2026-08-28's check; Sơn is patching both in now (using the
+     Gmail App Password already verified for local dev, as an interim production SMTP account —
+     revisit once a proper shared company mailbox is set up, not blocking).
 
 ## Safety (never relaxed — this is a Serious product, not a spike)
 - Secrets via env vars only, `.env` never committed, pre-commit hook stays on.
