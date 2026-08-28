@@ -849,8 +849,8 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
    (render+validation+submit+the location.state.from redirect regression) and
    `UserManagementPage.test.tsx` (create/edit/delete/toggle/resend-activation, all against the real
    AG Grid component, not mocked) both added — closes the gap item 2 above left open.
-4. `backend/scripts/init_db.sh` exists on disk but was never committed — still unresolved, confirm
-   with Sơn whether to commit it or if it's a local-only convenience script.
+4. ~~`backend/scripts/init_db.sh` commit-or-not~~ — **dropped (2026-08-28, Sơn): not a priority,
+   leave it as an uncommitted local convenience script, no further action.**
 5. Locate the vendor's reference for the *forgot/reset/activate* screens' exact wording if one
    exists beyond `~/Downloads/app.html` (already reviewed and built against) — not blocking,
    just worth confirming nothing drifted from a newer mockup revision.
@@ -881,7 +881,15 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
      resolved, or accept it as a standing trade-off.
    - Branch/PR discipline (the Phase 6 item above) is now doubly relevant: with 2+ people (and
      agents) pushing straight to `main` in a repo that auto-deploys on every push, an untested bad
-     commit reaches production immediately, with no gate at all.
+     commit reaches production immediately, with no gate at all. **Decision (2026-08-28, Sơn):**
+     not locking `main` on GitLab yet (Settings → Protected branches → "Allowed to push: No one")
+     — self-adopt the `feature/<slug>` branch + Merge Request habit first (agents included) and
+     let it settle before making it mechanically enforced. Proposed flow: branch → push → open MR
+     → a review pass posted as an MR comment (subagent carrying the `qa-reviewer.md` persona, same
+     technique as the 2026-08-25 retroactive audit — literal `qa-reviewer` isn't a registered
+     subagent type in this environment) → Sơn/Le Bui reads it + the diff → merges (not pushes) →
+     that merge is what triggers the existing on-`main` pipeline, no `.gitlab-ci.yml` change
+     needed for this part. Revisit locking `main` for real once the habit holds.
    - `frontend/`'s pre-commit hook only runs `npm test` — no `tsc -b` (type-check) and no `oxlint`.
      A real type error can currently reach a commit (and, per the point above, production)
      undetected by any local safety net — see the `tsc -b` finding in `docs/PROGRESS.md`'s
