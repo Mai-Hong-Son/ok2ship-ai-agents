@@ -1,20 +1,23 @@
 # Progress log — ok2ship-ai
 
-Daily-glance log: what got done, what's next. Newest entry on top.
-
-For full state/decisions/rationale (the doc an agent reads to resume work), see `../HANDOFF.md`.
+The full phase-by-phase build history: every bug found, every decision's rationale, dated,
+newest-first. `../HANDOFF.md` is the short version (current state + what's still open) — an agent
+resuming work reads `HANDOFF.md` first, and comes here only to look up how/why something specific
+was done (2026-08-28: split apart once `HANDOFF.md` grew to ~900 lines of mostly-finished history).
 For the User Management schema and locked design, see `design/user-management.md`.
 
 ## Status at a glance
 - **Module in progress:** User Management & Permission Assignment (WBS #5) — first module of the
   product.
-- **Current phase:** Phase 0–5 done (scaffold through frontend). Several rounds of mockup-fidelity
-  fixes landed after Phase 5 (fonts, icons/badges, grid filtering rebuild, header/sidebar/
-  breadcrumb — see the Log below). **Phase 6 (integration + qa-reviewer audit + merge) not
-  started** — every commit so far, in every repo, has gone straight to `main`.
+- **Current phase:** Phase 0–5 done (scaffold through frontend), plus many rounds of
+  mockup-fidelity/UX fixes and a retroactive qa-reviewer audit since (see the Log below). **Live
+  in production**: `ok2ship-dev.desoft.vn`, deployed via a GitLab CI/CD pipeline that
+  build+deploys automatically on every push to `main` (both repos) — see 2026-08-26's entry.
+  **Phase 6's branch/PR discipline is now being self-adopted** (2026-08-28, not yet
+  GitLab-enforced) — see `../HANDOFF.md`'s "Next steps" for the exact status/plan.
 - **Repo state:** three separate repos (`products/ok2ship-ai/` docs/planning on GitHub;
-  `backend/`/`frontend/` on GitLab), all pushed. Backend 148 tests, frontend 42 tests, both green.
-  See `../HANDOFF.md`'s "Repo topology" for URLs/latest commit SHAs.
+  `backend/`/`frontend/` on GitLab), all pushed. Backend 182 tests, frontend 102 tests, both
+  green. See `../HANDOFF.md`'s "Repo topology" for URLs/latest commit SHAs.
 
 | Phase | What | Status |
 |---|---|---|
@@ -26,7 +29,8 @@ For the User Management schema and locked design, see `design/user-management.md
 | 4 | Real email delivery | ✅ Done |
 | 4.5 | Forgot/reset/change password (gaps found via mockup review) | ✅ Done |
 | 5 | Frontend (login + User Management screens) | ✅ Done |
-| 6 | Integration + qa-reviewer pass + merge | ⬜ Not started |
+| 6 | Integration + qa-reviewer pass + merge | 🟡 Partial — audit done (08-25), branch/PR self-adopted (08-28), `main` not GitLab-locked yet |
+| — | k8s deploy + CI/CD (not an original phase, added once infra was ready) | ✅ Live (08-25/26) |
 
 ## Log
 
@@ -89,6 +93,96 @@ fixed in the same pass:
 
 182/182 backend tests, 100% coverage on `email.py`; 102/102 frontend tests; `tsc -b` (the real
 check) clean; both repos committed and pushed.
+
+### 2026-08-25 — Mockup-fidelity batch (10 commits) + first retroactive qa-reviewer audit
+Sơn reviewed the live app against the mockup and caught a string of drift points, fixed same-day:
+header height/padding corrected to the mockup's real `.ant-header` (was h-14/px-5, mockup measures
+h-16/px-6); Forgot Password's email validated client-side + echoed in the success message; "Ghi
+nhớ đăng nhập" wired through `login()` for real (checked = 30-day persistent refresh cookie,
+unchecked = real browser-session cookie); deleted-account login now reports "tài khoản đã bị xóa"
+distinctly from "vô hiệu hóa" (`AUTH_ACCOUNT_DELETED` code added); every modal gained real open/
+close animations (found a genuine Chromium bug: reusing one keyframe with only `animation-
+direction` toggled doesn't reliably restart it — needed a distinct second keyframe); Add/Edit User
+validated against the vendor's field-spec table for the first time (max lengths, mandatory role,
+both frontend and backend); the user-detail modal and Delete/status-toggle/Logout dialogs were
+being built through the wrong shared component (`Modal.tsx`'s header+X shape) — rebuilt via a new
+`ConfirmModal.tsx` matching the mockup's actual icon+title+desc shape; a stale-grid-cell bug (AG
+Grid's default change detection missing `is_deleted`/`status` changes on cells reading fields
+outside their own column) fixed generally via `refreshCells({force:true})` after two narrower
+point-fixes proved insufficient; Delete disabled for an already-deleted row; a distinct "Đã xóa"
+badge + grid filter option added (removed again on 2026-08-27, see below); the name column gained
+its missing avatar. Backend: `max_failed_login_attempts` 5→20, and race-safe case-insensitive
+username uniqueness (functional index + `IntegrityError` translation).
+
+**Retroactive qa-reviewer audit (Phase 6) — first time this gate actually ran.** Everything above
+(and everything since the initial import) had landed straight on `main`, no branch/PR/qa-reviewer
+step. Simulated via 2 parallel general-purpose subagents each carrying the real `qa-reviewer.md`
+persona (the literal `qa-reviewer` subagent type isn't registered in this environment), one per
+repo, read-only. Findings fixed same day:
+- **[Backend, Major]** `UserUpdate` had no field constraints (only `UserCreate` did) —
+  `PATCH /users/{id}` with `role_codes: []` silently stripped every role from a user on Edit.
+- **[Backend, Minor]** Unbounded password length on login/change-password fields checked against
+  an existing hash — CPU-DoS via forced argon2id work; capped at 128 chars.
+- **[Backend, Minor]** The `IntegrityError` race-condition safety net was only tested via its
+  standalone translation helper, never the real `create_user`/`update_user` code path.
+- **[Backend, Minor]** Constraint-name matching used substring search on the raw driver message
+  instead of psycopg's structured `diag.constraint_name`.
+- **[Frontend, Major]** The single-select `RoleSelect` (Sơn's earlier "match the mockup, only 2
+  roles exist" call) could silently truncate a user already holding >1 role down to 1 on Edit —
+  fixed with a lock-to-read-only-chips guard rather than reverting the single-select decision.
+- **[Frontend, Minor]** Two unhandled-promise-rejection sites (`RoleSelect`'s roles fetch,
+  `Header`'s logout).
+- **[Frontend, Major]** No component-level tests existed at all — partially addressed
+  (`Header`/`RoleSelect`/`UserFormModal` tests covering the fixes above); full page-level flow
+  coverage followed on 2026-08-26.
+
+Le Bui also shipped the first k8s deploy artifacts today (Dockerfile + manifests, both repos) —
+see 2026-08-26's entry for the CI/CD pipeline that followed.
+
+### 2026-08-26 — CI/CD pipeline live; page-level test coverage backfilled
+Le Bui built and shipped Kubernetes deploy infrastructure end-to-end, live at
+`ok2ship-dev.desoft.vn` (Rancher cluster `rancher-lake.desoft.vn`, namespace `ok2ship`):
+Dockerfiles, k8s manifests (Deployment/Service/Ingress, migration + bootstrap-admin Jobs), and a
+GitLab CI/CD pipeline (Kaniko build, namespace-scoped `ci-deployer` ServiceAccount) that
+build+push+migrate+deploys automatically on every push to `main`, both repos. CI's own `test`
+stage is disabled — the runner has no Postgres available for `tests/test_health.py` — a
+deliberate trade-off to unblock build/deploy, still tracked as open in `HANDOFF.md`.
+
+Backfilled the frontend's missing page-level test coverage (flagged by the qa-reviewer audit the
+day before): `LoginPage.test.tsx` (render/validation/submit, the `location.state.from` redirect
+regression) and `UserManagementPage.test.tsx` (create/edit/delete/toggle/resend-activation against
+the real AG Grid component). Also fixed `Header.test.tsx`'s mocked profile to satisfy
+`UserResponse`'s full shape (caught by `tsc -b`, part of `npm run build`, after a vendor
+field-spec change widened the type — an early sign of the `tsc --noEmit`-is-a-no-op issue found
+and root-caused two days later, 2026-08-28).
+
+### 2026-08-27 — Responsive layout; 4 grid usability fixes; real favicon; deleted users hidden server-side
+**Responsive layout.** The app shell had zero mobile support below `lg:` (1024px) outside the
+auth pages — a fixed 232px sidebar always visible ate ~60% of a phone's width, squeezing the grid
+to ~106px and wrapping the breadcrumb mid-word. `Sidebar.tsx` becomes an off-canvas drawer below
+`lg:` (fixed + translate-x, backdrop click to close, closes on nav); `Header.tsx` gained a
+hamburger toggle + breadcrumb truncation + a capped/hidden display name (caught live: an
+unconstrained name wrapped 3 lines and pushed the header taller). Verified at 390/768/1440px —
+desktop pixel-identical to before. Confirmed with Sơn: the grid itself stays plain AG Grid
+horizontal-scroll on mobile, not a card-list redesign (a separate, larger task if wanted later).
+
+**4 requested grid fixes:** pagination page sizes `[6,12,24]` → `[10,20,50,100,200]`; Email/Tên
+đăng nhập cell vertical-alignment (was top-aligned, missing the `flex h-full items-center`
+`NameCell` already had); Role/Trạng thái filters converted from single-select dropdown to
+multi-select checkboxes (`SelectColumnFilter.tsx` rewritten around a `{values: string[]}`
+OR-matching model, toggle logic split into a pure, unit-tested `multiSelectFilter.ts`); deleted
+users hidden from the list **entirely**, not just via a filter — decided with Sơn specifically
+because it superseded the previous day's "Đã xóa" filter option (removed, since no row could ever
+match it again). Backend: `list_users()` now unconditionally excludes `is_deleted=true` — still a
+soft delete under the hood (`get_user(id)`/`audit_log` unaffected), only the list view hides them.
+
+**Favicon.** Was the default Vite scaffold icon (a purple lightning bolt), unrelated to the
+product — replaced with a crop of `logo.png`'s own geometric mark (the "MEKTEC" wordmark
+excluded, unreadable at favicon scale), since no dedicated OK2SHIP logo file exists separately
+from Mektec's.
+
+**Email delivery rework** drafted locally today (activation/reset emails: bare token → clickable
+link + HTML template) — see the entries above (2026-08-27/28) for the reviewed, finished version.
 
 ### 2026-08-19 — Backend folder architecture locked
 **Done:**

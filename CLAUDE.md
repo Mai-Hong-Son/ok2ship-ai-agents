@@ -1,7 +1,7 @@
 @~/Documents/ai-company/CLAUDE.md
 
-> 👉 READ `HANDOFF.md` FIRST — latest session state, locked decisions, approved build plan, next
-> steps. Schema source of truth: `docs/design/user-management.md`.
+> 👉 READ `HANDOFF.md` FIRST — current state, locked decisions, next steps (full phase-by-phase
+> history lives in `docs/PROGRESS.md`). Schema source of truth: `docs/design/user-management.md`.
 
 # ok2ship-ai — full-stack (OK2SHIP AI, Mektec Vietnam)
 
