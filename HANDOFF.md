@@ -37,8 +37,10 @@ copied into either GitLab repo. A session working from a fresh clone of just `ba
 Backend + web dashboard for **OK2SHIP AI** (Mektec Vietnam, delivered alongside vendor
 Desoft). 🚀 Serious product (not a spike) — tests mandatory, branch-per-feature (being adopted,
 see "Next steps"), qa-reviewer before merge. Built module by module following the vendor's WBS.
-**First module: User Management & Permission Assignment** (WBS #5) — everything else (AI
-Detection, SPC/Cpk Validation, Rule Engine, Alert/Notification, Dashboards) is future work.
+**First module, User Management & Permission Assignment (WBS #5), is signed off complete by Sơn
+(2026-08-29)** — see "Current state" below. Next module: not chosen yet (candidates per the
+vendor's WBS: Data Ingestion, Template Management, AI Detection, SPC/Cpk Validation, Rule Engine,
+Alert/Notification, Dashboards — pick up at "Next steps" #0 once decided).
 
 Sibling spikes already proved feasibility for later modules — reuse, don't re-derive:
 - `../_spikes/ok2ship-anomaly` — golden/one-class anomaly detection, future "image vs golden
@@ -47,11 +49,17 @@ Sibling spikes already proved feasibility for later modules — reuse, don't re-
   future data/spec-check modules.
 
 ## Current state
-User Management (WBS #5) — Phases 0 through 5 (backend scaffold through frontend) are done, plus
-many rounds of mockup-fidelity/UX fixes and a retroactive qa-reviewer audit since. **Live in
-production** at `ok2ship-dev.desoft.vn` (Rancher cluster `rancher-lake.desoft.vn`, namespace
-`ok2ship`), deployed via a GitLab CI/CD pipeline that build+deploys automatically on every push to
-`main`, both repos (Le Bui, 2026-08-25/26). Backend 182 tests, frontend 102 tests, both green.
+**User Management & Permission Assignment (WBS #5) — complete, signed off by Sơn (2026-08-29).**
+Phases 0 through 5 (backend scaffold through frontend), many rounds of mockup-fidelity/UX fixes, a
+retroactive qa-reviewer audit, and a performance fix (activation/reset emails moved off the
+request path via BackgroundTasks — was adding a real 1-3s delay to every create/edit/resend/
+forgot-password click) since. **Live in production** at `ok2ship-dev.desoft.vn` (Rancher cluster
+`rancher-lake.desoft.vn`, namespace `ok2ship`), deployed via a GitLab CI/CD pipeline that
+build+deploys automatically on every push to `main`, both repos (Le Bui, 2026-08-25/26). Backend
+185 tests, frontend 102 tests, both green.
+
+A `/project-retro` ran the same day this module was signed off — see `docs/PROGRESS.md`'s Log for
+the dated entry and whatever lessons were approved into the hub.
 
 **Full history — every phase, every bug found, every design decision's rationale, dated — lives
 in `docs/PROGRESS.md`'s Log, newest first.** This file only tracks what's still open; don't
@@ -81,34 +89,43 @@ duplicate finished work back into it.
     hood (`get_user(id)`/`audit_log` unaffected) — only the list view hides them.
 
 ## Next steps (pick up here)
-1. **Phase 6 — branch/PR discipline: self-adopting now, not GitLab-enforced yet.** All commits
-   through 2026-08-27 went straight to `main` in every repo. **Decision (2026-08-28, Sơn):** not
-   locking `main` on GitLab yet (Settings → Protected branches → "Allowed to push: No one") —
-   self-adopt the `feature/<slug>` branch + Merge Request habit first (agents included) and let it
-   settle before making it mechanically enforced. Proposed flow: branch → push → open MR → a
-   review pass posted as an MR comment (subagent carrying the `qa-reviewer.md` persona, same
-   technique as the 2026-08-25 retroactive audit — literal `qa-reviewer` isn't a registered
-   subagent type in this environment) → Sơn/Le Bui reads it + the diff → merges (not pushes) →
-   that merge is what triggers the existing on-`main` pipeline, no `.gitlab-ci.yml` change needed
-   for this part. First real use: `frontend`'s `feature/precommit-tsc-typecheck` branch/MR
-   (2026-08-28, hook improvements below) — revisit locking `main` for real once the habit holds.
-2. **k8s/CI follow-ups, still open** (the deploy infra itself is done and live — see "Current
+0. **Pick the next module.** User Management (WBS #5) is done — see "Current state". No module has
+   been chosen next yet; ask Sơn before starting anything new. Candidates per the vendor's WBS:
+   Data Ingestion, Template Management, AI Detection, SPC/Cpk Validation, Rule Engine,
+   Alert/Notification, Dashboards. Whichever lands: `audit_log` partitioning (see "Safety" below)
+   was explicitly deferred until Template Management specifically (Sơn, 2026-08-29) — if that's
+   the one chosen, don't let it slip further.
+1. **3 open MRs, not yet merged — merge (or close) before treating User Management as fully
+   settled:**
+   - `backend`: `feature/async-activation-emails` — BackgroundTasks perf fix.
+   - `backend`: `feature/email-drop-fallback-link` — dropped the redundant raw-link paragraph
+     from the HTML email templates.
+   - `frontend`: `docs/drop-git-hooks-readme-section` — README trim.
+   (`frontend`'s `feature/precommit-tsc-typecheck` already merged, 2026-08-28.)
+2. **Branch/PR discipline: self-adopting, not GitLab-enforced.** Decision (2026-08-28, Sơn): not
+   locking `main` on GitLab (Settings → Protected branches → "Allowed to push: No one") —
+   self-adopting the `feature/<slug>`-branch + Merge Request habit first (agents included), revisit
+   locking it for real once the habit holds through more than one module. 4 real MRs created this
+   way so far (2026-08-28/29, see item 1) — no MR-level qa-reviewer pass has actually been posted
+   as a comment yet (the proposed mechanism: a subagent carrying the `qa-reviewer.md` persona,
+   same technique as the 2026-08-25 retroactive audit — literal `qa-reviewer` isn't a registered
+   subagent type in this environment), just ask-before-merge in conversation — worth tightening if
+   this becomes routine.
+3. **k8s/CI follow-ups, still open** (the deploy infra itself is done and live — see "Current
    state"):
    - CI's `test` stage is disabled in both repos ("per explicit request to unblock build/deploy" —
      the runner has no Postgres available for `tests/test_health.py`). Fix properly: add a
      `services:` Postgres container to `.gitlab-ci.yml` (GitLab supports this natively) rather than
      leaving it off indefinitely.
-   - Cluster Secret `ok2ship-backend-env` (backend) — confirm `FRONTEND_BASE_URL` and `SMTP_*` are
-     patched in (Sơn was doing this as of 2026-08-28, using the Gmail App Password already verified
-     for local dev as an interim production SMTP account — revisit once a proper shared company
-     mailbox is set up, not blocking). Verify with `kubectl -n ok2ship describe secret
-     ok2ship-backend-env` (lists key names only, safe to run/share).
-3. **Done (2026-08-28): pre-commit hook now type-checks, and is tracked in-repo (frontend).**
-   `frontend/scripts/git-hooks/pre-commit` — added a real `tsc -b` check (previous hook only ran
-   `npm test`); tracked in the repo for the first time (hooks live in `.git/hooks/`, which git
-   never version-controls — was invisible/machine-local before). **Backend's hook still isn't
-   tracked the same way** — same fix, not yet done, low priority (Python doesn't have an
-   equivalent "wrong flag silently no-ops" trap the way `tsc --noEmit` did).
+   - Cluster Secret `ok2ship-backend-env` — confirm `FRONTEND_BASE_URL` and `SMTP_*` ended up
+     patched in correctly (Sơn was doing this as of 2026-08-28/29, using the Gmail App Password
+     already verified for local dev as an interim production SMTP account — revisit once a proper
+     shared company mailbox is set up, not blocking). Verify with `kubectl -n ok2ship describe
+     secret ok2ship-backend-env` (lists key names only, safe to run/share).
+   - `backend`'s pre-commit hook still isn't tracked in-repo the way `frontend`'s now is (see
+     `frontend/scripts/git-hooks/pre-commit`, merged 2026-08-28) — same fix, not yet done, low
+     priority (Python doesn't have an equivalent "wrong flag silently no-ops" trap `tsc --noEmit`
+     had, so the urgency that drove the frontend fix doesn't apply the same way here).
 4. `backend/scripts/init_db.sh` — ~~commit-or-not~~ **dropped (2026-08-28, Sơn): not a priority,
    leave it as an uncommitted local convenience script, no further action.**
 5. Locate the vendor's reference for the *forgot/reset/activate* screens' exact wording if one
@@ -120,15 +137,21 @@ duplicate finished work back into it.
    - `/auth/activate` requiring a password reset even for an email-change token, not just an
      initial signup — gap-closing addition.
    - `/auth/change-password` not revoking other sessions.
+   - `UserResponse.activation_email_sent` always being `None` now for create/update/resend
+     (2026-08-29 BackgroundTasks change, see "Current state") — a real delivery failure is only
+     discoverable via server logs or the user reporting "never got the email," not surfaced to the
+     Admin in the moment anymore. Confirmed as an acceptable trade-off with Sơn at the time; worth
+     re-confirming if this module gets busier.
 7. Re-open the "blocking" open items check in `docs/design/user-management.md` before relying on
    it further — they were resolved as of the last design session, but double-check nothing new
    surfaced.
-8. `frontend/` has checked-in tests for page-level flows now (Login, User Management grid — done
-   2026-08-26) and per-bug component tests from the qa-reviewer audit — but no exhaustive
-   coverage audit has been done since. Not urgent, just not "fully verified" either.
 
 ## Safety (never relaxed — this is a Serious product, not a spike)
 - Secrets via env vars only, `.env` never committed, pre-commit hook stays on.
 - No hard-deleting `users` rows — ever (breaks `audit_log`'s referential trail).
 - Every module besides User Management must also write to `audit_log` once built (decision #1's
   consequence) — don't let this get forgotten when AI Detection / Rule Engine modules land later.
+- `audit_log` isn't partitioned by month yet — the design doc calls this non-negotiable long-term
+  (the table grows unbounded), deliberately deferred at planning time given low data volume so
+  far, and again by Sơn (2026-08-29) specifically until the Template Management module lands —
+  don't let it slip past that.

@@ -7,16 +7,15 @@ was done (2026-08-28: split apart once `HANDOFF.md` grew to ~900 lines of mostly
 For the User Management schema and locked design, see `design/user-management.md`.
 
 ## Status at a glance
-- **Module in progress:** User Management & Permission Assignment (WBS #5) — first module of the
-  product.
-- **Current phase:** Phase 0–5 done (scaffold through frontend), plus many rounds of
-  mockup-fidelity/UX fixes and a retroactive qa-reviewer audit since (see the Log below). **Live
-  in production**: `ok2ship-dev.desoft.vn`, deployed via a GitLab CI/CD pipeline that
+- **Module status: User Management & Permission Assignment (WBS #5) — ✅ complete, signed off by
+  Sơn (2026-08-29).** First module of the product. Next module not chosen yet — see
+  `../HANDOFF.md`'s "Next steps" #0.
+- **Live in production**: `ok2ship-dev.desoft.vn`, deployed via a GitLab CI/CD pipeline that
   build+deploys automatically on every push to `main` (both repos) — see 2026-08-26's entry.
-  **Phase 6's branch/PR discipline is now being self-adopted** (2026-08-28, not yet
-  GitLab-enforced) — see `../HANDOFF.md`'s "Next steps" for the exact status/plan.
+  **Branch/PR discipline is self-adopted, not yet GitLab-enforced** (2026-08-28 decision) — see
+  `../HANDOFF.md`'s "Next steps" for the exact status/plan and the 3 MRs still open as of sign-off.
 - **Repo state:** three separate repos (`products/ok2ship-ai/` docs/planning on GitHub;
-  `backend/`/`frontend/` on GitLab), all pushed. Backend 182 tests, frontend 102 tests, both
+  `backend/`/`frontend/` on GitLab), all pushed. Backend 185 tests, frontend 102 tests, both
   green. See `../HANDOFF.md`'s "Repo topology" for URLs/latest commit SHAs.
 
 | Phase | What | Status |
@@ -29,10 +28,45 @@ For the User Management schema and locked design, see `design/user-management.md
 | 4 | Real email delivery | ✅ Done |
 | 4.5 | Forgot/reset/change password (gaps found via mockup review) | ✅ Done |
 | 5 | Frontend (login + User Management screens) | ✅ Done |
-| 6 | Integration + qa-reviewer pass + merge | 🟡 Partial — audit done (08-25), branch/PR self-adopted (08-28), `main` not GitLab-locked yet |
+| 6 | Integration + qa-reviewer pass + merge | ✅ Module signed off (08-29) — branch/PR still self-adopted only, not GitLab-locked (carries into future modules, see HANDOFF) |
 | — | k8s deploy + CI/CD (not an original phase, added once infra was ready) | ✅ Live (08-25/26) |
 
 ## Log
+
+### 2026-08-29 — Performance fix + email/doc cleanups; User Management (WBS #5) signed off complete
+**Performance fix, caught live by Sơn**: creating/editing/resending activation for a user (and
+forgot-password) each waited a real 1-3s inside the API request for `send_activation_email()`/
+`send_password_reset_email()` to open an SMTP connection to Gmail, TLS-handshake, authenticate,
+and send — all before the response went back to the browser. Fixed with FastAPI's built-in
+`BackgroundTasks` (no new infrastructure — a real task queue would be overkill at this volume):
+the response now returns as soon as the DB work commits, the email send runs after. Trade-off,
+confirmed with Sơn first: `UserResponse.activation_email_sent` (added 2026-08-28 specifically to
+warn the Admin in the moment when delivery failed) can no longer be known synchronously — always
+`None` for create/update/resend now; a genuine failure is still logged and still recoverable via
+"Gửi lại email kích hoạt", just not surfaced in the moment. `request_password_reset` already
+returned the same generic response either way (anti-enumeration), so backgrounding it there cost
+nothing that wasn't already true. New tests confirm the actual scheduling behavior (BackgroundTasks'
+own task list holds the real function + kwargs, never invoked inline), not just "the response still
+works either way." Verified live: a real `POST /users` went from ~1-3s to 62ms; a Playwright
+click-through (Xác nhận → success toast) timed at 0.2s. 185/185 backend tests passing.
+
+**Two small content/doc cleanups, same day, both Sơn's direct requests:**
+- Dropped the "Nếu nút trên không hoạt động, hãy sao chép liên kết sau vào trình duyệt" fallback
+  paragraph (+ repeated raw link) from both HTML email templates — button only now. The
+  plain-text half of each email is unaffected, still carries the raw link on its own (the real
+  fallback for a client that can't render HTML at all).
+- Removed the "Git hooks" section from `frontend/README.md` (Sơn: applies to him only, not asking
+  Le Bui to change anything) — `scripts/git-hooks/pre-commit` and the already-installed local hook
+  are unaffected, only the install instructions are gone from the README.
+
+Both landed on their own feature branches (`feature/email-drop-fallback-link`,
+`docs/drop-git-hooks-readme-section`), same branch/PR habit as the day before — see item 1 below.
+
+**User Management & Permission Assignment (WBS #5) signed off complete by Sơn** — the first
+module of the product. `HANDOFF.md` and this file's "Status at a glance" both updated to reflect
+it; 3 MRs were still open at sign-off time (2 backend, 1 frontend — see `HANDOFF.md`'s "Next
+steps" #1), not yet merged. A `/project-retro` was run the same day — see the entry below (or
+above, depending how it landed) for whatever lessons got approved into the hub.
 
 ### 2026-08-27 — Activation / password-reset emails now carry clickable frontend links
 **Done:**
