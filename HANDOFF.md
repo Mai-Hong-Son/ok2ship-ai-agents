@@ -2,7 +2,10 @@
 
 > Read this first when reopening this product. Update it after each session.
 > Working rules + stack: see `CLAUDE.md`. Schema + all locked decisions: see
-> `docs/design/user-management.md` (source of truth — code must match it, not the other way round).
+> `docs/design/user-management.md` (User Management, done) and
+> `docs/design/template-management.md` (Template Management, design in progress — not yet approved
+> for implementation) — each is the source of truth for its own module; code must match it, not the
+> other way round.
 > Backend folder/module architecture: see `docs/design/backend-architecture.md`.
 > Full phase-by-phase build history (every bug found, every decision's rationale — this file only
 > keeps a short summary + what's actionable right now): see `docs/PROGRESS.md`.
@@ -38,9 +41,18 @@ Backend + web dashboard for **OK2SHIP AI** (Mektec Vietnam, delivered alongside 
 Desoft). 🚀 Serious product (not a spike) — tests mandatory, branch-per-feature (being adopted,
 see "Next steps"), qa-reviewer before merge. Built module by module following the vendor's WBS.
 **First module, User Management & Permission Assignment (WBS #5), is signed off complete by Sơn
-(2026-08-29)** — see "Current state" below. Next module: not chosen yet (candidates per the
-vendor's WBS: Data Ingestion, Template Management, AI Detection, SPC/Cpk Validation, Rule Engine,
-Alert/Notification, Dashboards — pick up at "Next steps" #0 once decided).
+(2026-08-29)** — see "Current state" below. **Second module chosen: Template Management** (part of
+a larger configuration-layer scope from a separate SRS, `SRS-OK2SHIP-AI.docx` v2.3, 28/08/2026,
+covering Template / Data Mapping / Spec / Golden Sample / Save & Publish / Report Upload — Template
+Management is being tackled first). ⚠️ **NOT FINISHED — blocked on the BA, do not treat as
+done** (Sơn, 2026-09-06). A large first pass is written and committed to
+`feature/template-management` in both repos (against `docs/design/template-management.md`, still
+the source of truth), but the module is **not complete**: several behaviours are still waiting on
+the BA to come back with updated requirements, and the design doc itself will change when they do.
+Code is on a branch so the work isn't sitting unbacked on one laptop — that is the ONLY reason it
+was committed, not a sign it is ready. Expect to revise it, not just review it. Known gaps are in
+the design doc's "Open items"; the most concrete one is editability of Mã tài liệu / Phạm vi áp
+dụng / Mô tả after duplicating a Template.
 
 Sibling spikes already proved feasibility for later modules — reuse, don't re-derive:
 - `../_spikes/ok2ship-anomaly` — golden/one-class anomaly detection, future "image vs golden
@@ -89,12 +101,43 @@ duplicate finished work back into it.
     hood (`get_user(id)`/`audit_log` unaffected) — only the list view hides them.
 
 ## Next steps (pick up here)
-0. **Pick the next module.** User Management (WBS #5) is done — see "Current state". No module has
-   been chosen next yet; ask Sơn before starting anything new. Candidates per the vendor's WBS:
-   Data Ingestion, Template Management, AI Detection, SPC/Cpk Validation, Rule Engine,
-   Alert/Notification, Dashboards. Whichever lands: `audit_log` partitioning (see "Safety" below)
-   was explicitly deferred until Template Management specifically (Sơn, 2026-08-29) — if that's
-   the one chosen, don't let it slip further.
+0. ⚠️ **Template Management — UNFINISHED, waiting on the BA (Sơn, 2026-09-06). Do not merge
+   branch set 1 yet.** The first pass is committed so it isn't stranded on one laptop, but the
+   requirements are still moving: the BA owes updated answers, and the design doc will change with
+   them. Treat the branch as work in progress to be revised, not a candidate for review-and-merge.
+   Known gaps live in `docs/design/template-management.md`'s "Open items"; the most concrete is
+   editability of Mã tài liệu / Phạm vi áp dụng / Mô tả after duplicating a Template. Re-targeting
+   scope is the risky one — decision #9 resolves Template identity most-specific-wins at Import
+   time, so allowing a re-target without new guard logic can orphan or duplicate a Template.
+
+   **Three branch sets are open, stacked in this order** (each based on the previous, so merging
+   out of order conflicts). Sets 2 and 3 are finished and independent of the BA — but they sit on
+   top of set 1, so they cannot be merged before it:
+   1. `feature/template-management` (backend + frontend) — ⚠️ UNFINISHED, see above.
+   2. `fix/error-boundary-blank-page` (frontend only) — done. A render crash no longer blanks the
+      whole page.
+   3. `feature/error-logging-loki` (backend + frontend) — done. Structured JSON logs into the
+      cluster's existing Loki; see ADR 004.
+   If sets 2/3 are wanted in `main` before Template Management is ready, they'll need rebasing
+   off `main` directly rather than waiting — that's a rebase, not a re-implementation, but it is
+   not free and someone has to do it deliberately.
+
+   Docs branches in this repo: `docs/template-management-design`, `docs/error-monitoring-adr`,
+   `docs/handoff-update`.
+   `wip/backup-before-split` in both code repos is a throwaway snapshot of all of it as one
+   commit — delete once the above are merged.
+   Object storage is **resolved (2026-09-02)** — MinIO on the existing `pre-prod` namespace,
+   bucket `ok2ship-files`, credentials already in the `ok2ship-backend-env` k8s Secret; see
+   `docs/design/template-management.md` decision #6 for the full detail (including the caveat that
+   `pre-prod` isn't durable/backed-up storage — revisit if `ok2ship` is ever promoted to real prod).
+   `audit_log` partitioning (see "Safety" below) was explicitly deferred until this module
+   specifically (Sơn, 2026-08-29) — don't let it slip further now that it has landed.
+
+   **Local test gotcha (cost an hour on 2026-09-06):** the dev `.env` points SMTP at real Gmail
+   and MinIO at the in-cluster `minio.pre-prod.svc.cluster.local`, neither reachable/appropriate
+   from a laptop — `pytest` then HANGS (no error, just stops). Run the suite with those overridden:
+   `SMTP_HOST= MINIO_ENDPOINT=localhost:9000 MINIO_ACCESS_KEY=ok2ship MINIO_SECRET_KEY=ok2ship123 uv run pytest -q`
+   Worth fixing properly by pointing the dev `.env` at Mailpit + local MinIO instead.
 1. **3 open MRs, not yet merged — merge (or close) before treating User Management as fully
    settled:**
    - `backend`: `feature/async-activation-emails` — BackgroundTasks perf fix.
