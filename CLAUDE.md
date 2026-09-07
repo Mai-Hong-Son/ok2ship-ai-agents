@@ -1,12 +1,14 @@
-@~/Documents/ai-company/CLAUDE.md
 
 > 👉 READ `HANDOFF.md` FIRST — current state, locked decisions, next steps (full phase-by-phase
 > history lives in `docs/PROGRESS.md`). Schema source of truth: `docs/design/user-management.md`.
 
+@~/Documents/simon-brain/wiki/projects/ok2ship-ai.md
+
 # ok2ship-ai — full-stack (OK2SHIP AI, Mektec Vietnam)
 
-> This product inherits the whole Constitution (the @ line above). Everything below is
-> product-SPECIFIC, and may only be STRICTER than the Constitution, never looser.
+> Global rules: `~/.claude/CLAUDE.md`. Engineering rules + program context: simon-brain wiki
+> (`concepts/engineering-rules`, `projects/ok2ship-ai`). Everything below is product-SPECIFIC,
+> and may only be STRICTER than the shared rules, never looser.
 
 ## What this product is
 Backend + web dashboard for **OK2SHIP AI** (Mektec Vietnam, delivered with vendor Desoft —
@@ -18,12 +20,12 @@ Alert/Notification, Dashboards) is future work, added to this same repo as it's 
 
 Two upstream sibling spikes already proved feasibility for later modules — reuse their findings,
 don't re-derive:
-- `../_spikes/ok2ship-anomaly` — golden/one-class anomaly detection (Anomalib/PatchCore), for the
+- `../../spikes/ok2ship-anomaly` — golden/one-class anomaly detection (Anomalib/PatchCore), for the
   future "check image vs golden sample" module.
-- `../_spikes/ok2ship-report-parser` — reading structured data out of real factory Excel reports
+- `../../spikes/ok2ship-report-parser` — reading structured data out of real factory Excel reports
   (label-keyed parsing, template drift findings), for the future data/spec-check modules.
 
-## Stack (locked at project-init — matches Constitution default, no ADR needed)
+## Stack (locked at project-init — matches the default-stack standard, no ADR needed)
 - Backend: **Python 3.11+ / FastAPI / Pydantic v2**, **PostgreSQL**.
 - Web: **React 18 + Vite + Tailwind** — no router/state library until genuinely needed.
 - Tests: **pytest** (backend) / **vitest** (frontend) — mandatory for every feature (Serious product).
@@ -79,16 +81,16 @@ touching this module must respect:
   deliberately different algorithms (argon2id is intentionally slow for passwords; tokens need
   fast, frequent lookups).
 
-## Product-specific rules (stricter than Constitution)
+## Product-specific rules (stricter than the shared rules)
 1. Real factory report data/images (future modules) are customer data — never leave the approved
-   environment, never touch a free-tier AI service (Constitution #3). This applies even though the
+   environment, never touch a free-tier AI service (engineering-rules #3). This applies even though the
    User Management module itself doesn't touch customer QA data.
 2. Every `audit_log` write captures only the fields that actually changed (`before`/`after`), never
    a full record dump — avoids accidentally logging sensitive fields.
 3. Float/threshold comparisons (once spec-check modules land) use a tolerance, never `==`
-   (Constitution #4), with the epsilon and its reason stated at each comparison site.
+   (engineering-rules #4), with the epsilon and its reason stated at each comparison site.
 
 ## Notes
 - This repo starts Serious (not a spike) — tests are mandatory from the first commit, branch per
-  feature, qa-reviewer before merge, per the Constitution's Standard/Full flow.
+  feature, adversarial review before merge (simon-brain wiki `concepts/approval-gates`).
 - Add further product-specific rules below as new WBS modules land in this repo.
