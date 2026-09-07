@@ -2,6 +2,8 @@
 > 👉 READ `HANDOFF.md` FIRST — current state, locked decisions, next steps (full phase-by-phase
 > history lives in `docs/PROGRESS.md`). Schema source of truth: `docs/design/user-management.md`.
 
+@~/Documents/simon-brain/wiki/projects/ok2ship-ai.md
+
 # ok2ship-ai — full-stack (OK2SHIP AI, Mektec Vietnam)
 
 > Global rules: `~/.claude/CLAUDE.md`. Engineering rules + program context: simon-brain wiki
