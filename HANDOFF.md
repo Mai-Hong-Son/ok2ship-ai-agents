@@ -11,11 +11,11 @@
 > keeps a short summary + what's actionable right now): see `docs/PROGRESS.md`.
 
 ## Repo topology (read this before touching git — it's not one repo)
-**Moved 2026-09-07: this product now lives at `~/Documents/ok2ship-ai/`**, no longer under
+**Moved 2026-09-07: this product now lives at `~/Documents/products/ok2ship-ai/`**, no longer under
 `ai-company/products/`. The `ai-company` hub was dissolved the same day — its constitution was
 absorbed into the `simon-brain` wiki (`~/Documents/simon-brain/`), which is also where the shared
 skills now live. Any older path in these docs that starts `products/ok2ship-ai/` means
-`~/Documents/ok2ship-ai/`.
+`~/Documents/products/ok2ship-ai/`.
 
 ⚠️ **`CLAUDE.md` references simon-brain in prose, but does NOT `@import` it** — so a session gets
 the product's own CLAUDE.md and nothing from the wiki unless it goes and reads the files itself
@@ -26,7 +26,7 @@ realising the hub had been restructured. Either add the `@import` lines or expec
 read them by hand.
 
 As of 2026-08-23, this product is **three separate git repositories**, not one:
-1. **`~/Documents/ok2ship-ai/`** (this repo, the one `HANDOFF.md`/`docs/` live in) — planning,
+1. **`~/Documents/products/ok2ship-ai/`** (this repo, the one `HANDOFF.md`/`docs/` live in) — planning,
    design docs, session handoff only; `.gitignore` here explicitly excludes `backend/` and
    `frontend/` in full (not just their build artifacts), so this repo never tracks their content
    or creates a submodule-style gitlink for them. Pushed to
@@ -42,8 +42,8 @@ install it into a fresh clone); backend's currently only exists locally (not yet
 way — worth doing, same pattern, not done yet).
 
 **Sơn's chosen workflow**: keep developing at these same local paths
-(`~/Documents/ok2ship-ai/{backend,frontend}` are the working copies for those two repos;
-`~/Documents/ok2ship-ai/` itself is the working copy for the GitHub one) — do not clone any of the
+(`~/Documents/products/ok2ship-ai/{backend,frontend}` are the working copies for those two repos;
+`~/Documents/products/ok2ship-ai/` itself is the working copy for the GitHub one) — do not clone any of the
 three to a new location. Push again only when asked; nothing auto-syncs between them.
 
 `HANDOFF.md`/`docs/PROGRESS.md`/`docs/design/*.md` live ONLY in the parent repo — they are not
@@ -72,9 +72,9 @@ shouldn't be seen yet, hide the sidebar entry (a permission condition in `Sideba
 has decided this either way yet.
 
 Sibling spikes already proved feasibility for later modules — reuse, don't re-derive:
-- `../_spikes/ok2ship-anomaly` — golden/one-class anomaly detection, future "image vs golden
+- `../../spikes/ok2ship-anomaly` — golden/one-class anomaly detection, future "image vs golden
   sample" module.
-- `../_spikes/ok2ship-report-parser` — reading structured data out of real factory Excel reports,
+- `../../spikes/ok2ship-report-parser` — reading structured data out of real factory Excel reports,
   future data/spec-check modules.
 
 ## Current state

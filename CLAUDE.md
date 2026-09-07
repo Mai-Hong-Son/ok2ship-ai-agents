@@ -20,9 +20,9 @@ Alert/Notification, Dashboards) is future work, added to this same repo as it's 
 
 Two upstream sibling spikes already proved feasibility for later modules — reuse their findings,
 don't re-derive:
-- `../_spikes/ok2ship-anomaly` — golden/one-class anomaly detection (Anomalib/PatchCore), for the
+- `../../spikes/ok2ship-anomaly` — golden/one-class anomaly detection (Anomalib/PatchCore), for the
   future "check image vs golden sample" module.
-- `../_spikes/ok2ship-report-parser` — reading structured data out of real factory Excel reports
+- `../../spikes/ok2ship-report-parser` — reading structured data out of real factory Excel reports
   (label-keyed parsing, template drift findings), for the future data/spec-check modules.
 
 ## Stack (locked at project-init — matches the default-stack standard, no ADR needed)
