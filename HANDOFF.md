@@ -120,6 +120,12 @@ duplicate finished work back into it.
     query param to override it — decided 2026-08-27 specifically because it superseded an earlier
     "Đã xóa" filter option that this made permanently unmatchable. Still a soft delete under the
     hood (`get_user(id)`/`audit_log` unaffected) — only the list view hides them.
+11. **Access token TTL is 600 s since 2026-09-15 — a temporary raise, to be pulled back.** It was
+    120 s, chosen because the TTL alone is what bounds force-logout on Lock/Inactive (a locked
+    account keeps acting until its token expires). Sơn raised it to 10 minutes for the dev/test
+    period; the BA has not been asked. Lives in `backend/app/config.py` (the deployed env secret
+    does not override it). Do not treat the longer TTL as the fix for slow uploads — that fix is
+    the token being verified on arrival (see Known traps).
 
 ## Next steps (pick up here)
 0. 🔴 **UNRESOLVED — login and logout feel slow on the dev site since the 2026-09-07 deploy**
@@ -236,6 +242,18 @@ duplicate finished work back into it.
   restores `customer` as `NOT NULL` without handling existing rows, so downgrading fails with
   `NotNullViolation`. Harmless today (CI only ever runs `upgrade`) but it blocks a rollback if one
   is ever needed. Not fixed.
+- **FastAPI checks the access token AFTER a file upload has fully arrived.** For a form/file body
+  it reads the whole body first and resolves `Depends(get_current_user)` after, so a 473 MB
+  report uploaded over a slow link outlived the token and got 401 with a token that was valid
+  when the upload began — then the client re-sent the whole file (BA, deployed env,
+  2026-09-15; reproduced locally at 3 MB/s). Fixed by verifying the bearer token in the
+  request-context middleware (on arrival) and having `get_current_user` honour that verdict for
+  the same token — `backend/app/core/deps.py::mark_verified_on_arrival`. Tests for it drive the
+  ASGI app directly, because `TestClient` reads the body before the app sees the request.
+- **A failed `/auth/refresh` is not always a dead session.** The frontend used to clear the
+  access token on ANY refresh failure, so a 502 while the backend pod restarted became a full
+  logout: every later request went out without a bearer, 401'd, and asked for another refresh.
+  Only a 401 from `/auth/refresh` ends the session now (`frontend/src/api/client.ts`).
 - **Pydantic 422 errors embed the submitted value** under `input` — for `/auth/reset-password`
   that is the user's real password. Never log `exc.errors()` wholesale; `app/main.py`'s
   `_validation_failure_summary` keeps field name + error type only, and a test asserts the
