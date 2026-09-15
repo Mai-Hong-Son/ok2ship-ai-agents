@@ -91,6 +91,14 @@ Management (unfinished, see above), the ErrorBoundary fix, and structured JSON l
 cluster's Loki (ADR 004). Backend **256 tests**, frontend **126 tests**, both green; migrations
 verified to apply cleanly onto a database that already holds data, not just an empty one.
 
+**Since 2026-09-08, `main` also carries Data Mapping (WBS #5.3)** and a run of fixes around it:
+every sheet of the report is configurable; spec values may be text or a set (`in`); photo previews
+come back as thumbnails and a field's anchors are fetched in one batched request; the suggestion
+engine pairs photos with cells across six cross-section layouts and names each proposal after the
+sheet's own group. Auth gained two fixes worth knowing before touching it — the token is judged
+when a request ARRIVES (long uploads), and only a 401 from `/auth/refresh` ends a session. The
+access-token TTL is temporarily 600 s (decision 11 above).
+
 A `/project-retro` ran the same day this module was signed off — see `docs/PROGRESS.md`'s Log for
 the dated entry and whatever lessons were approved into the hub.
 
@@ -128,6 +136,17 @@ duplicate finished work back into it.
     the token being verified on arrival (see Known traps).
 
 ## Next steps (pick up here)
+
+> ⚠️ **Two sessions are running in parallel as of 2026-09-15 — stay inside your lane.**
+> - **Report upload (WBS #5.4, new module)**: owns the new screens/API/tables for uploading a QA
+>   report and running it against a Template. It must NOT touch `frontend/src/components/templates/**`
+>   or `frontend/src/pages/TemplateManagementPage.tsx`.
+> - **Template Management fixes**: owns exactly those files, plus the Template/Revision backend.
+>
+> Both branch from the same `main` on two shared repos, so the only thing keeping them apart is
+> this boundary. Merge small and often rather than holding a long branch; if a change genuinely
+> needs a file in the other lane, say so in conversation before writing it.
+
 0. 🔴 **UNRESOLVED — login and logout feel slow on the dev site since the 2026-09-07 deploy**
    (Sơn). Not reproduced, and **not** traced to any of the new code. Measured and ruled out:
    backend API latency (`/health` 27–34 ms, failed login 38 ms, 12 samples against the live site),
@@ -146,14 +165,20 @@ duplicate finished work back into it.
    `auth/login` and `auth/logout`. Slow request → backend (almost certainly the CPU limit above).
    Fast request but a frozen UI → frontend, look at `AuthContext`. A throwaway test account on the
    dev site would let a session measure this directly instead of asking.
-1. **Verify the Loki pipeline end to end — the last unverified step of ADR 004.** The app side is
-   confirmed working (JSON on stdout, `X-Request-ID` present on live responses, 401/403/404/409/422
-   all logged at the intended levels, passwords confirmed absent from log output). What nobody has
-   checked yet is whether Grafana Alloy actually scrapes the `ok2ship` namespace: open Grafana →
-   Explore → Loki and run `{namespace="ok2ship"}`. Nothing there while the pod clearly prints JSON
-   means the gap is in Alloy's config, not in this codebase — that needs whoever runs the `logging`
-   namespace, no code change.
-2. ⚠️ **Template Management — UNFINISHED, waiting on the BA.** It is on `main` and deployed (see
+1. 🟡 **Loki: diagnosed 2026-09-15, waiting on Desoft — no code change on our side.** The app half
+   of ADR 004 is confirmed (JSON on stdout, `X-Request-ID` on live responses, 4xx at the intended
+   levels, passwords absent from output), and Alloy is confirmed to scrape us: its `discovery`
+   filters by node only, with no namespace rule anywhere in the config. The gap is tenancy. Alloy
+   tags each line `tenant = namespace` (`stage.tenant`) and Loki runs `auth_enabled: true`, so
+   every namespace is a separate tenant; Grafana's Loki datasources carry a fixed `X-Scope-OrgID`
+   list per org, and **`ok2ship` appears in none of the six** (checked in the `grafana` ConfigMap,
+   ns `logging`). Our logs are in Loki — retention 720h, so the backlog is still there — and simply
+   unreadable from Grafana. **Ask Desoft** to add `ok2ship` to their org's tenant list (in the
+   `grafana` Helm release's values; the ConfigMap is Helm-managed, so a hand edit is erased by the
+   next upgrade) and restart Grafana. Until then, read logs from Rancher → Workloads →
+   `ok2ship-backend` → pod → View Logs; `app.client_errors` is the browser-crash channel.
+2. ⚠️ **Template Management — UNFINISHED, waiting on the BA.** (Data Mapping, its WBS #5.3
+   sub-module, IS built and open on every sheet — see `docs/decisions/005-*` and the wiki page.) It is on `main` and deployed (see
    "What this product is"), so the remaining work is *revision*, not a merge decision. Known gaps
    live in `docs/design/template-management.md`'s "Open items"; the most concrete is editability of
    Mã tài liệu / Phạm vi áp dụng / Mô tả after duplicating a Template. Re-targeting scope is the
@@ -254,6 +279,11 @@ duplicate finished work back into it.
   access token on ANY refresh failure, so a 502 while the backend pod restarted became a full
   logout: every later request went out without a bearer, 401'd, and asked for another refresh.
   Only a 401 from `/auth/refresh` ends the session now (`frontend/src/api/client.ts`).
+- **A temporary test aid ships in `main`**: the Data Mapping screen renders a checklist panel and a
+  "Gợi ý cấu hình" button only for the addresses in `frontend/src/lib/testOnlyTools.ts` (Sơn's, on
+  local dev and on `ok2ship-dev.desoft.vn`). The checklist data itself is a generated
+  `src/lib/checklistPreview.ts`. All of it is disposable — delete the file, the component and the
+  one use in `DataMappingPage` when Sơn says the testing is done.
 - **Pydantic 422 errors embed the submitted value** under `input` — for `/auth/reset-password`
   that is the user's real password. Never log `exc.errors()` wholesale; `app/main.py`'s
   `_validation_failure_summary` keeps field name + error type only, and a test asserts the
