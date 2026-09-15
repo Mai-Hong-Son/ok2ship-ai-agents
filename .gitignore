@@ -9,3 +9,10 @@ frontend/
 .DS_Store
 .vscode/
 .idea/
+
+# Claude Code's own directory: local settings, and any git worktree it creates under
+# .claude/worktrees/. Ignored for the same reason as backend/ and frontend/ above — a worktree is a
+# full checkout with its own .git, and `git add` here would otherwise try to record it as a
+# gitlink. Ignoring it does NOT remove it: `git worktree list` still knows about it.
+.claude/
+
